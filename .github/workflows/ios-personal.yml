@@ -42,6 +42,8 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
           pod --version
+      - name: Resolve missing lockfile dependencies
+        run: flutter pub get
       - name: Build unsigned IPA
         env:
           ALL_SOURCES: ${{ inputs.all_sources }}
@@ -79,6 +81,13 @@ jobs:
               if actual != expected:
                   raise SystemExit('SHA256 mismatch: ' + name)
           PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-resolved-lockfile-${{ github.run_number }}
+          path: pubspec.lock
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-${{ github.run_number }}
