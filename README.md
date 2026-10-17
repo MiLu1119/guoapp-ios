@@ -76,7 +76,7 @@ Flutter 多端独立短剧 / 影视应用，原名「短剧库 APP」。站源�
 
 ### GitHub Actions
 
-个人 iOS 打包：在自己的 Fork 中打开 Actions → Build iOS IPA → Run workflow。默认构建全站源版，取消 `all_sources` 则构建红果版。工作流在 macOS 云端生成未签名 IPA，检查 `Payload/Runner.app` 结构和 SHA256 后上传到该次运行的 Artifacts，保留 14 天。下载并解压 artifact ZIP，再使用自己的 Apple 账号通过签名工具安装其中的 IPA；此流程不需要在 GitHub 配置 Apple 密钥。0.2.65+72 修复了 IPA 打包时保留 Payload 顶层目录的问题。该流程尚待云端构建和 iPhone 真机验收。
+个人 iOS 打包：在自己的 Fork 中打开 Actions → Build iOS IPA → Run workflow。默认构建全站源版，取消 `all_sources` 则构建红果版。工作流在 macOS 云端生成未签名 IPA，检查 `Payload/Runner.app` 结构和 SHA256 后上传到该次运行的 Artifacts，保留 14 天。下载并解压 artifact ZIP，再使用自己的 Apple 账号通过签名工具安装其中的 IPA；此流程不需要在 GitHub 配置 Apple 密钥。0.2.65+72 修复了 IPA 打包时保留 Payload 顶层目录的问题。该流程已完成 GitHub macOS 云端构建及 IPA 结构、SHA256 校验；iPhone 签名安装与播放仍待真机验收。依赖锁文件已根据成功构建结果补齐，后续构建继续强制校验锁文件。
 
 推送 `main` / `master`、`v*` 标签、提交 PR，或手动运行 **Build app packages**，会先检查再构建两版（默认与 `--all-sources`）：
 
