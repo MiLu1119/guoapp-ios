@@ -1,0 +1,89 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      all_sources:
+        description: Build the all-sources edition
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-personal-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOPROXY: https://proxy.golang.org,direct
+  GOSUMDB: sum.golang.org
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+          cache-dependency-path: native/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - name: Check Apple build tools
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          pod --version
+      - name: Build unsigned IPA
+        env:
+          ALL_SOURCES: ${{ inputs.all_sources }}
+        run: |
+          if [ "$ALL_SOURCES" = "true" ]; then
+            python3 scripts/build_ios.py --all-sources
+          else
+            python3 scripts/build_ios.py
+          fi
+      - name: Verify IPA layout and checksums
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import plistlib
+          import zipfile
+          from pathlib import Path
+
+          output = Path('dist/ios')
+          packages = list(output.glob('*-ios-unsigned.ipa'))
+          if len(packages) != 1:
+              raise SystemExit('Expected exactly one unsigned IPA')
+          with zipfile.ZipFile(packages[0]) as package:
+              names = set(package.namelist())
+              required = {'Payload/Runner.app/Info.plist', 'Payload/Runner.app/Runner'}
+              if not required <= names:
+                  raise SystemExit('Invalid IPA: Payload/Runner.app is missing')
+              if package.testzip() is not None:
+                  raise SystemExit('IPA archive checksum failed')
+              info = plistlib.loads(package.read('Payload/Runner.app/Info.plist'))
+              print('Bundle:', info['CFBundleIdentifier'])
+              print('Minimum iOS:', info.get('MinimumOSVersion'))
+          for line in (output / 'SHA256SUMS.txt').read_text().splitlines():
+              expected, name = line.split('  ', 1)
+              actual = hashlib.file_digest((output / name).open('rb'), 'sha256').hexdigest()
+              if actual != expected:
+                  raise SystemExit('SHA256 mismatch: ' + name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-${{ github.run_number }}
+          path: |
+            dist/ios/*-ios-unsigned.ipa
+            dist/ios/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
